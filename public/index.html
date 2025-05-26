@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Email Generator</title>
+  <!-- Add Comfortaa font from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Comfortaa:400,700&display=swap" rel="stylesheet">
+  <style>
+    body, #emails, input, button, table, label, th, td {
+      font-family: 'Comfortaa', system-ui, sans-serif;
+    }
+    #emails div { transition: box-shadow 0.2s; }
+    #emails div:hover { box-shadow: 0 2px 8px #0001; }
+    .admin-box {
+      border: 2px solid #b6b6ff;
+      background: #f7f8ff;
+      border-radius: 10px;
+      padding: 18px 22px 16px 22px;
+      margin-bottom: 24px;
+      max-width: 420px;
+      box-shadow: 0 2px 8px #b6b6ff22;
+    }
+    .admin-box label, .admin-box button {
+      font-size: 1.08em;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="font-family:'Comfortaa',cursive,sans-serif;text-align:center;font-size:2.4em;letter-spacing:2px;margin:32px 0 18px 0;color:#5865F2;">
+    TAYMAIL
+  </h1>
+  <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+    <div class="admin-box">
+      <b>Generate as an admin</b><br>
+      <label>How many inboxes? <input type="number" id="bulkCount" min="1" max="20" value="1"></label>
+      <button id="createBtn">Create New Inbox</button>
+      <div id="info"></div>
+    </div>
+    <div class="admin-box">
+      <b>Find our Discord</b><br>
+      <div style="margin-top:8px;">
+        <a href="https://discord.gg/YOUR_INVITE_CODE" target="_blank" style="color:#5865F2;text-decoration:none;font-weight:bold;">
+          Join our Discord Community
+        </a>
+      </div>
+    </div>
+  </div>
+  <hr>
+  <h2>Login to Existing Inbox</h2>
+  <form id="loginForm" style="background:#f7f8ff;border:2px solid #b6b6ff;border-radius:10px;max-width:420px;padding:22px 26px 18px 26px;box-shadow:0 2px 8px #b6b6ff22;margin-bottom:24px;">
+    <div style="margin-bottom:14px;">
+      <label style="display:block;margin-bottom:6px;font-weight:bold;">Email:</label>
+      <input type="email" id="loginEmail" required style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:1em;">
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="display:block;margin-bottom:6px;font-weight:bold;">Password:</label>
+      <input type="password" id="loginPassword" required style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:1em;">
+    </div>
+    <button type="submit" style="width:100%;padding:10px 0;background:#5865F2;color:#fff;border:none;border-radius:6px;font-size:1.08em;font-weight:bold;cursor:pointer;transition:background 0.2s;">Login & Fetch Emails</button>
+  </form>
+  <pre id="emails"></pre>
+
+  <script>
+  let inboxId = '';
+  let token = '';
+
+  document.getElementById('createBtn').onclick = async () => {
+    const password = prompt('Enter owner password to create a new inbox:');
+    if (password !== 'Taylorricho10') {
+      alert('Incorrect password. Access denied.');
+      return;
+    }
+    const count = parseInt(document.getElementById('bulkCount').value, 10) || 1;
+    let results = [];
+    for (let i = 0; i < count; i++) {
+      const res = await fetch('/create-email', { method: 'POST' });
+      const data = await res.json();
+      // Only add if no error
+      if (!data.error && data.email && data.password) {
+        results.push(data);
+      }
+    }
+    if (results.length === 0) {
+      document.getElementById('info').innerHTML = `<span style="color:red;">No emails could be created. Try again.</span>`;
+    } else {
+      // Build a table for the results
+      let table = `<table style="border-collapse:collapse;margin-top:10px;">
+        <tr>
+          <th style="border:1px solid #ccc;padding:4px 8px;">Email</th>
+          <th style="border:1px solid #ccc;padding:4px 8px;">Password</th>
+        </tr>`;
+      results.forEach(data => {
+        table += `<tr>
+          <td style="border:1px solid #ccc;padding:4px 8px;font-family:monospace;">${data.email}</td>
+          <td style="border:1px solid #ccc;padding:4px 8px;font-family:monospace;">${data.password}</td>
+        </tr>`;
+      });
+      table += `</table>`;
+      document.getElementById('info').innerHTML = table;
+    }
+    document.getElementById('emails').textContent = '';
+  };
+
+  document.getElementById('loginForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    // Get token from mail.tm API
+    const tokenRes = await fetch('https://api.mail.tm/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: email, password })
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.token) {
+      let msg = 'Incorrect password';
+      if (tokenData.detail && tokenData.detail.toLowerCase().includes('user not found')) {
+        msg = 'Email not found';
+      }
+      document.getElementById('emails').innerHTML = `<span style="color:red;">${msg}</span>`;
+      return;
+    }
+    token = tokenData.token;
+
+    // Get inboxId from mail.tm API
+    const accountRes = await fetch('https://api.mail.tm/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const accountData = await accountRes.json();
+    inboxId = accountData.id;
+
+    // Fetch emails from your backend
+    const res = await fetch('/get-emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inboxId, token })
+    });
+    const data = await res.json();
+
+    if (data && data['hydra:member'] && Array.isArray(data['hydra:member'])) {
+      if (data['hydra:member'].length === 0) {
+        document.getElementById('emails').innerHTML = '<i>No emails found.</i>';
+      } else {
+        document.getElementById('emails').innerHTML = data['hydra:member'].map((email, idx) => `
+          <div class="email-card" id="email-card-${idx}" style="margin-bottom:18px;padding:12px 16px;border:1px solid #e0e0e0;border-radius:8px;background:#fafbfc;cursor:pointer;position:relative;" onclick="expandEmail(${idx})">
+            <div><b>From:</b> ${email.from?.address || 'Unknown'}</div>
+            <div><b>Subject:</b> ${email.subject || '(No subject)'}</div>
+            <div><b>Received:</b> ${email.createdAt ? new Date(email.createdAt).toLocaleString() : 'Unknown'}</div>
+            <div><b>Preview:</b> ${email.intro || '(No preview)'}</div>
+            <div class="email-details" id="email-details-${idx}" style="display:none;margin-top:10px;">
+              <button onclick="event.stopPropagation();shrinkEmail(${idx})" style="position:absolute;top:8px;right:8px;">Close</button>
+              <pre style="white-space:pre-wrap;">${JSON.stringify(email, null, 2)}</pre>
+            </div>
+          </div>
+        `).join('');
+      }
+    } else {
+      document.getElementById('emails').innerHTML = '<span style="color:red;">Error fetching emails.</span>';
+    }
+  };
+
+  window.expandEmail = function(idx) {
+    document.getElementById(`email-details-${idx}`).style.display = 'block';
+    document.getElementById(`email-card-${idx}`).style.background = '#fffbe7';
+  };
+  window.shrinkEmail = function(idx) {
+    document.getElementById(`email-details-${idx}`).style.display = 'none';
+    document.getElementById(`email-card-${idx}`).style.background = '#fafbfc';
+  };
+  </script>
+</body>
+</html>
