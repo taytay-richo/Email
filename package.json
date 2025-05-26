@@ -1,0 +1,25 @@
+{
+  "name": "email-gen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taytay-richo/Email.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/taytay-richo/Email/issues"
+  },
+  "homepage": "https://github.com/taytay-richo/Email#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
