@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/taytay-richo/Email#readme",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "axios": "^1.6.8"
   }
 }
